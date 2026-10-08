@@ -1,0 +1,17 @@
+# Python and environments
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# Data and outputs
+data/raw/
+data/processed/
+*.parquet
+*.csv
+*.png
+
+# IDEs
+.cursor/
+.vscode/
+.idea/
