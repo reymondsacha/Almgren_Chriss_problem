@@ -1,3 +1,6 @@
+\usepackage{amsmath, amssymb, amsthm, graphicx, float}
+
+
 # Discrete Almgren-Chriss Optimal Execution & ML-Driven MPC
 
 A quantitative framework for optimal trade execution, implementing a strictly discrete formulation of the Almgren-Chriss model extended with a Machine Learning-driven Model Predictive Control (MPC) engine.
@@ -17,6 +20,7 @@ The fundamental price process follows an arithmetic random walk with permanent m
 $$S_{k} = S_{k-1} + \sigma \sqrt{\tau} \xi_{k} - \gamma v_{k}$$
 
 The executed price incorporates a temporary market impact penalty $\eta$:
+
 $$\overline{S}_{k} = S_{k-1} - \eta \frac{v_{k}}{\tau}$$
 
 The numerical solver evaluates the discrete second-order difference equation, strictly converging to the continuous-time ODE $x''(t) - \tilde{\kappa}^2 x(t) = 0$ as $\tau \to 0$.

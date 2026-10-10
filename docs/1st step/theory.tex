@@ -14,7 +14,7 @@
 
 \title{Discrete Almgren-Chriss Optimal Execution}
 \author{Sacha Reymond}
-\date{September 28, 2026}
+\date{}
 
 \begin{document}
 
@@ -235,7 +235,7 @@ Standard linear regressors can output negative predictions, which mathematically
 \paragraph{Linear Limitations and the Non-Linear Pivot}
 Initial out-of-sample testing utilized a Ridge regressor with dynamic $\alpha$ tuning. When benchmarked against a naive 10-period Simple Moving Average (SMA), the Ridge model outperformed on liquidity prediction (MSE improvement of $+4.90\%$) but suffered a massive degradation in volatility prediction ($-31.04\%$ against the SMA). 
 
-This empirical failure reveals a core microstructural reality: order book dynamics are highly non-linear. Market phenomena such as sudden liquidity vacuums or volatility spikes are threshold events. Continuous linear weights fail to capture these regime shifts, capturing noise instead of signal. Consequently, the architecture was pivoted to tree-based non-linear regressors (Random Forest), which inherently map step-function thresholds (e.g., if depth drops below $x$ and momentum exceeds $y$, apply a discrete volatility spike).
+This empirical failure reveals a core microstructural reality: order book dynamics are highly non-linear. Market phenomena such as sudden liquidity vacuums or volatility spikes are threshold events. Continuous linear weights fail to capture these regime shifts, capturing noise instead of signal. 
 
 \section{Empirical Bootstrapping and Dynamic MPC Validation}
 
