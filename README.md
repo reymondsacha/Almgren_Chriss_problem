@@ -25,21 +25,27 @@ $$\overline{S}_{k} = S_{k-1} - \eta \frac{v_{k}}{\tau}$$
 
 The numerical solver evaluates the discrete second-order difference equation, strictly converging to the continuous-time ODE $x''(t) - \tilde{\kappa}^2 x(t) = 0$ as $\tau \to 0$.
 
-## Repository Structure
+├── data/
+│   └── raw/                   # Raw historical price/volume data (e.g., AAPL 5m bars)
+├── docs/                      # Project documentation (contains theory.pdf)
+├── notebooks/
+│   ├── ml_test.ipynb          # Ridge regression testing and predictive modeling
+│   └── validation.ipynb       # Monte Carlo Efficient Frontier validation
+├── results/                   # Generated plots, distributions, and execution outputs
+├── src/
+│   ├── __init__.py
+│   ├── data_downloader.py     # Data ingestion and API scripts
+│   ├── dataset_builder.py     # Target variable construction for the ML pipeline
+│   ├── derivation.py          # Vectorized tridiagonal matrix solver and analytical derivations
+│   ├── dynamic_execution.py   # ML-driven MPC dynamic execution loop
+│   ├── features.py            # Time-series feature engineering (Garman-Klass, OFI, etc.)
+│   ├── main.py                # Primary execution entry point
+│   └── simulation.py          # Vectorized Monte Carlo price path generation
+├── .gitignore                 # Git ignored files (including .venv and __pycache__)
+├── poetry.lock                # Poetry dependency lockfile
+├── pyproject.toml             # Poetry project configuration
+└── README.md
 
-    ├── data/                  # Historical price and volume data for MPC calibration
-    ├── notebooks/             # Jupyter notebooks containing mathematical proofs and EDA
-    │   ├── validation.ipynb   # Monte Carlo Efficient Frontier validation
-    │   └── ml_calibration.ipynb # Ridge regression feature engineering and tuning
-    ├── src/
-    │   ├── solver.py          # Vectorized tridiagonal matrix solver (scipy.linalg.solve_banded)
-    │   ├── simulation.py      # Vectorized Monte Carlo price path generation
-    │   ├── mpc_engine.py      # ML-driven dynamic execution loop
-    │   └── evaluation.py      # Empirical bootstrapper and IS distribution grading
-    ├── docs/
-    │   └── theory.pdf         # Comprehensive mathematical documentation and LaTeX proofs
-    ├── pyproject.toml         # Poetry dependency management
-    └── README.md
 
 ## Core Results
 
