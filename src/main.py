@@ -177,7 +177,7 @@ from dataset_builder import build_ml_dataset
 from features import Market_State_Engineer, Execution_Parameter_Regressor
 from dynamic_execution import DynamicAlmgrenChriss
 
-def dynamic_execution(plot:bool = True):
+def dynamic_execution(lam: int, plot:bool = True):
     """
     Orchestrates the full ML pipeline: data ingestion, feature engineering,
     Ridge model training, and dynamic execution trajectory simulation.
@@ -224,7 +224,7 @@ def dynamic_execution(plot:bool = True):
         T=T_horizon, 
         N=N_steps, 
         gamma=gamma_perm_calibrated, 
-        lambda_penalty=2e-7  # Example risk aversion
+        lambda_penalty=lam  # Example risk aversion
     )
     
     dynamic_trajectory = dynamic_engine.execute_dynamic_trajectory(
@@ -242,7 +242,7 @@ def dynamic_execution(plot:bool = True):
         sigma=mean_y_sigma, 
         eta=mean_y_eta, 
         gamma=gamma_perm_calibrated, 
-        lambda_penalty=2e-7
+        lambda_penalty=lam
     )
     static_trajectory = static_model.solve_trajectory()
 
@@ -275,5 +275,5 @@ def dynamic_execution(plot:bool = True):
     }
 
 # Execute Phase 3
-dynamic_execution()
+dynamic_execution(lam=2e-8)
 

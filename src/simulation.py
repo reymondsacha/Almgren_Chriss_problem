@@ -59,7 +59,8 @@ class Historical_Bootstrapper:
         sigma_model, 
         eta_model, 
         static_v: np.ndarray, 
-        eval_eta: float
+        eval_gamma: float,
+        y_eta_realized: pd.Series
     ) -> dict:
         
         valid_starts = np.arange(len(self.feature_matrix) - self.N - 1)
@@ -73,10 +74,16 @@ class Historical_Bootstrapper:
             start_time = window_features.index[0]
             
             df_start_loc = self.df.index.get_loc(start_time)
-            window_df = self.df.iloc[df_start_loc : df_start_loc + self.N + 1]
+
+            S_raw_historical = self.df['Close'].iloc[df_start_loc : df_start_loc + self.N + 1].values
+            S_0 = S_raw_historical[0]
+
+            price_changes = np.diff(S_raw_historical)
+            centered_changes = price_changes - np.mean(price_changes)
+            S_raw = S_0 + np.hstack((0, np.cumsum(centered_changes)))
+
+            window_eta_realized = y_eta_realized.iloc[start_idx : start_idx + self.N].values
             
-            S_0 = window_df['Close'].iloc[0]
-            S_k_prev = window_df['Close'].iloc[:-1].values
             
             dyn_x = dynamic_engine.execute_dynamic_trajectory(
                 feature_matrix=window_features, 
@@ -85,9 +92,16 @@ class Historical_Bootstrapper:
             )
             dyn_v = dyn_x[:-1] - dyn_x[1:]
             
-            cash_static = np.dot(S_k_prev, static_v) - (eval_eta / self.tau) * np.sum(static_v ** 2)
-            cash_dynamic = np.dot(S_k_prev, dyn_v) - (eval_eta / self.tau) * np.sum(dyn_v ** 2)
+            static_impact_penalty = eval_gamma * np.hstack((0, np.cumsum(static_v[:-1])))
+            dynamic_impact_penalty = eval_gamma * np.hstack((0, np.cumsum(dyn_v[:-1])))
+
+            S_static_adjusted = S_raw[:-1] - static_impact_penalty
+            S_dynamic_adjusted = S_raw[:-1] - dynamic_impact_penalty
             
+            cash_static = np.dot(S_static_adjusted, static_v) - np.sum((window_eta_realized / self.tau) * (static_v**2))
+            cash_dynamic = np.dot(S_dynamic_adjusted, dyn_v) - np.sum((window_eta_realized / self.tau) * (dyn_v**2))
+
+
             static_IS[i] = cash_static - (self.X * S_0)
             dynamic_IS[i] = cash_dynamic - (self.X * S_0)
 

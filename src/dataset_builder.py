@@ -53,7 +53,7 @@ def build_ml_dataset(
     y_eta = forward_abs_return / rolling_volume.shift(-m_forward_periods)
     
     # Replace any infinite values with NaN before dropping
-    y_eta.replace([np.inf, -np.inf], np.nan, inplace=True)
+    y_eta.replace([np.inf, 0, -np.inf], np.nan, inplace=True)
     
     # 4. Cleanup
     dataset = X.copy()

@@ -10,6 +10,11 @@ data/processed/
 *.parquet
 *.csv
 *.png
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.synctex.gz
 
 # IDEs
 .cursor/
