@@ -7,6 +7,10 @@ A quantitative framework for optimal trade execution, implementing a strictly di
 
 This repository models the liquidation of a portfolio under permanent and temporary market impact, utilizing a vectorized $O(N)$ numerical solver for the unconstrained quadratic optimization problem. It bridges static theoretical execution schedules with dynamic, non-linear market microstructure adaptations using regularized supervised learning.
 
+## Documentation
+
+- 📄 [Read the mathematical derivation](docs/theory.pdf)
+
 ## System Architecture
 
 * **Analytical & Numerical Core**: Solves the mean-variance objective function $U(\mathbf{x}) = \mathbb{E}[C(\mathbf{x})] + \lambda \mathbb{V}[C(\mathbf{x})]$ by isolating the interior points into a strictly convex multi-dimensional quadratic form $\frac{1}{2}\mathbf{x}^T \mathbf{A} \mathbf{x} - \mathbf{b}^T \mathbf{x}$. The resulting symmetric positive-definite tridiagonal system is inverted using `scipy.linalg.solve_banded` for maximum computational efficiency.
@@ -25,6 +29,8 @@ $$\overline{S}_{k} = S_{k-1} - \eta \frac{v_{k}}{\tau}$$
 
 The numerical solver evaluates the discrete second-order difference equation, strictly converging to the continuous-time ODE $x''(t) - \tilde{\kappa}^2 x(t) = 0$ as $\tau \to 0$.
 
+
+```text
 ├── data/
 │   └── raw/                   # Raw historical price/volume data (e.g., AAPL 5m bars)
 ├── docs/                      # Project documentation (contains theory.pdf)
