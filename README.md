@@ -1,6 +1,3 @@
-\usepackage{amsmath, amssymb, amsthm, graphicx, float}
-
-
 # Discrete Almgren-Chriss Optimal Execution & ML-Driven MPC
 
 A quantitative framework for optimal trade execution, implementing a strictly discrete formulation of the Almgren-Chriss model extended with a Machine Learning-driven Model Predictive Control (MPC) engine.
@@ -51,13 +48,18 @@ The numerical solver evaluates the discrete second-order difference equation, st
 ├── poetry.lock                # Poetry dependency lockfile
 ├── pyproject.toml             # Poetry project configuration
 └── README.md
+```
+
+---
 
 
-## Core Results
+
+### Core Results
 
 1. **Theoretical Validation**: The discrete numerical solver aligns with the continuous-time hyperbolic analytical limit to within 0.11% discretization error.
 2. **Efficient Frontier Convergence**: Monte Carlo empirical estimators perfectly map onto the continuous theoretical boundary across the logarithmic $\lambda$ grid.
 3. **Liquidity Stress-Testing**: By scaling historical impact parameters by $10^4$ to suppress Brownian noise, the empirical bootstrapper validates that the dynamic MPC solver successfully routes volume away from localized liquidity droughts, reverting to the strict variance-minimizing schedule under infinite constraints.
+
 
 ## Installation & Usage
 
