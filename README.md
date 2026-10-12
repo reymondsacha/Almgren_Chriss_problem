@@ -72,12 +72,6 @@ cd almgren-chriss-mpc
 
 # Install dependencies
 poetry install
-
-# Run the core analytical solver
-poetry run python src/main.py
-
-# Launch the Jupyter environment to run the validation notebooks
-poetry run jupyter notebook
 ```
 
 ## Dependencies
