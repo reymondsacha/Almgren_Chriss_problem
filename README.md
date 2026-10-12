@@ -28,7 +28,7 @@ The numerical solver evaluates the discrete second-order difference equation, st
 ## Implementation Details
 
 - **Positive-Definite Constraint**: To guarantee a unique global minimum, the tridiagonal matrix $\mathbf{A}$ must remain strictly positive-definite ($\eta - \frac{1}{2}\gamma\tau > 0$). To enforce this physical boundary, ML target variables are mapped to log-space ($\ln(\sigma)$, $\ln(\eta)$) during training and exponentiated before being passed to the execution engine.
-- **Amihud Dimensional Calibration**: The dimensionless Amihud illiquidity proxy is dynamically scaled by the spot price and an empirical baseline constant ($\kappa_\eta$). This maps the raw volume-to-return ratio directly into the strict dollar-variance units $\left[ \frac{\$ \cdot \text{Time}}{\text{Shares}^2} \right]$ required by the objective function.
+- **Amihud Dimensional Calibration**: The dimensionless Amihud illiquidity proxy is dynamically scaled by the spot price and an empirical baseline constant ($\kappa_\eta$). This maps the raw volume-to-return ratio directly into the strict dollar-variance units $\left[ \frac{\text{USD} \cdot \text{Time}}{\text{Shares}^2} \right]$ required by the objective function.
 
 ## Repository Structure
 
