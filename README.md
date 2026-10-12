@@ -10,10 +10,10 @@ This repository models the liquidation of a portfolio under permanent and tempor
 
 ## System Architecture
 
-* **Analytical & Numerical Core**: Solves the mean-variance objective function $U(\mathbf{x}) = \mathbb{E}[C(\mathbf{x})] + \lambda \mathbb{V}[C(\mathbf{x})]$ by isolating the interior points into a strictly convex multi-dimensional quadratic form $\frac{1}{2}\mathbf{x}^T \mathbf{A} \mathbf{x} - \mathbf{b}^T \mathbf{x}$. The resulting symmetric positive-definite tridiagonal system is inverted using `scipy.linalg.solve_banded` for maximum computational efficiency.
-* **Vectorized Monte Carlo Engine**: An event-driven simulation framework generating 10,000+ simultaneous arithmetic random walk paths. It computes empirical execution shortfalls and variance exactly, validating the continuous theoretical Efficient Frontier against discrete stochastic realizations without iterative loops.
-* **Dynamic MPC & Machine Learning**: Replaces static impact parameters by predicting localized volatility ($\sigma_{t+1}$) and temporary impact ($\eta_{t+1}$) using a Ridge ($L_2$ regularized) regressor trained on high-frequency order book features (Garman-Klass volatility, Order Flow Imbalance).
-* **Empirical Bootstrapper**: A historical grading engine that evaluates the execution trajectories against actual market data (e.g., AAPL), accounting for cumulative permanent impact and localized liquidity scoring to isolate the execution penalty from intraday Brownian noise.
+- **Analytical & Numerical Core**: Solves the mean-variance objective function $U(\mathbf{x}) = \mathbb{E}[C(\mathbf{x})] + \lambda \mathbb{V}[C(\mathbf{x})]$ by isolating the interior points into a strictly convex multi-dimensional quadratic form $\frac{1}{2}\mathbf{x}^\top \mathbf{A} \mathbf{x} - \mathbf{b}^\top \mathbf{x}$. The resulting symmetric positive-definite tridiagonal system is inverted using `scipy.linalg.solve_banded` for maximum computational efficiency.
+- **Vectorized Monte Carlo Engine**: An event-driven simulation framework generating 10,000+ simultaneous arithmetic random walk paths. It computes empirical execution shortfalls and variance exactly, validating the continuous theoretical Efficient Frontier against discrete stochastic realizations without iterative loops.
+- **Dynamic MPC & Machine Learning**: Replaces static impact parameters by predicting localized volatility ($\sigma_{t+1}$) and temporary impact ($\eta_{t+1}$) using a Ridge ($L_2$ regularized) regressor trained on high-frequency order book features (Garman-Klass volatility, Order Flow Imbalance, Market Depth). 
+- **Empirical Bootstrapper**: A historical grading engine that evaluates the execution trajectories against actual market data (e.g., AAPL), accounting for cumulative permanent impact and localized liquidity scoring to isolate the execution penalty from intraday Brownian noise.
 
 ## Mathematical Formulation
 
@@ -21,11 +21,16 @@ The fundamental price process follows an arithmetic random walk with permanent m
 $$S_{k} = S_{k-1} + \sigma \sqrt{\tau} \xi_{k} - \gamma v_{k}$$
 
 The executed price incorporates a temporary market impact penalty $\eta$:
-
-$$\overline{S}_{k} = S_{k-1} - \eta \frac{v_{k}}{\tau}$$
+$$\tilde{S}_{k} = S_{k-1} - \eta \frac{v_{k}}{\tau}$$
 
 The numerical solver evaluates the discrete second-order difference equation, strictly converging to the continuous-time ODE $x''(t) - \tilde{\kappa}^2 x(t) = 0$ as $\tau \to 0$.
 
+## Implementation Details
+
+- **Positive-Definite Constraint**: To guarantee a unique global minimum, the tridiagonal matrix $\mathbf{A}$ must remain strictly positive-definite ($\eta - \frac{1}{2}\gamma\tau > 0$). To enforce this physical boundary, ML target variables are mapped to log-space ($\ln(\sigma)$, $\ln(\eta)$) during training and exponentiated before being passed to the execution engine.
+- **Amihud Dimensional Calibration**: The dimensionless Amihud illiquidity proxy is dynamically scaled by the spot price and an empirical baseline constant ($\kappa_\eta$). This maps the raw volume-to-return ratio directly into the strict dollar-variance units $\left[ \frac{\$ \cdot \text{Time}}{\text{Shares}^2} \right]$ required by the objective function.
+
+## Repository Structure
 
 ```text
 ├── data/
@@ -50,38 +55,36 @@ The numerical solver evaluates the discrete second-order difference equation, st
 └── README.md
 ```
 
----
-
-
-
-### Core Results
+## Core Results
 
 1. **Theoretical Validation**: The discrete numerical solver aligns with the continuous-time hyperbolic analytical limit to within 0.11% discretization error.
 2. **Efficient Frontier Convergence**: Monte Carlo empirical estimators perfectly map onto the continuous theoretical boundary across the logarithmic $\lambda$ grid.
 3. **Liquidity Stress-Testing**: By scaling historical impact parameters by $10^4$ to suppress Brownian noise, the empirical bootstrapper validates that the dynamic MPC solver successfully routes volume away from localized liquidity droughts, reverting to the strict variance-minimizing schedule under infinite constraints.
 
-
 ## Installation & Usage
 
-This project uses Poetry for dependency management.
+This project uses Poetry for dependency management and environment isolation.
 
-    # Clone the repository
-    git clone https://github.com/username/almgren-chriss-mpc.git
-    cd almgren-chriss-mpc
-    
-    # Install dependencies
-    poetry install
-    
-    # Run the core analytical solver
-    poetry run python src/solver.py
-    
-    # Execute the Monte Carlo simulation suite
-    poetry run python src/simulation.py
+```bash
+# Clone the repository
+git clone [https://github.com/username/almgren-chriss-mpc.git](https://github.com/username/almgren-chriss-mpc.git)
+cd almgren-chriss-mpc
+
+# Install dependencies
+poetry install
+
+# Run the core analytical solver
+poetry run python src/main.py
+
+# Launch the Jupyter environment to run the validation notebooks
+poetry run jupyter notebook
+```
 
 ## Dependencies
 
-* `numpy`: Core array operations and vectorized calculations.
-* `scipy`: Banded matrix inversion (`scipy.linalg.solve_banded`).
-* `pandas`: Time-series feature engineering.
-* `scikit-learn`: Ridge regression and time-series cross-validation.
-* `matplotlib` / `seaborn`: Visualization of execution trajectories and Efficient Frontiers.
+- `numpy`: Core array operations and vectorized calculations.
+- `scipy`: Banded matrix inversion (`scipy.linalg.solve_banded`).
+- `pandas`: Time-series feature engineering.
+- `scikit-learn`: Ridge regression and time-series cross-validation.
+- `matplotlib` / `seaborn`: Visualization of execution trajectories and Efficient Frontiers.
+- `jupyter`: Interactive validation and ML testing.

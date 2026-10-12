@@ -12,6 +12,9 @@
 \newtheorem{definition}[theorem]{Definition}
 \newtheorem{remark}[theorem]{Remark}
 
+% Mathematical operators
+\DeclareMathOperator*{\argmin}{arg\,min}
+
 \title{Discrete Almgren-Chriss Optimal Execution}
 \author{Sacha Reymond}
 \date{}
@@ -21,10 +24,12 @@
 \maketitle
 
 \begin{abstract}
-\noindent \textbf{Project Objective:} This paper presents a discrete-time Almgren-Chriss optimal execution engine extended with a dynamic Machine Learning Model Predictive Control (MPC) framework. The system leverages localized order book features to forecast short-term liquidity and volatility, dynamically adapting the liquidation schedule to navigate microstructural risk. \\
+\noindent \textbf{Project Objective:} This paper presents a discrete-time Almgren-Chriss optimal execution engine extended with a dynamic Machine Learning Model Predictive Control (MPC) framework. The system leverages localized order book features to forecast short-term liquidity and volatility, dynamically adapting the liquidation schedule to navigate microstructural risk.
 
-\noindent \textbf{Technical Stack:} The computational engine is developed in Python, utilizing NumPy for strict vectorization, SciPy's banded solver (\texttt{scipy.linalg.solve\_banded}) for $O(N)$ tridiagonal matrix inversion, and Scikit-learn for regularized Ridge regression and tree-based predictive modeling. \\
+\vspace{\baselineskip}
+\noindent \textbf{Technical Stack:} The computational engine is developed in Python, utilizing NumPy for strict vectorization, SciPy's banded solver (\texttt{scipy.linalg.solve\_banded}) for $O(N)$ tridiagonal matrix inversion, and Scikit-learn for regularized Ridge regression and predictive modeling.
 
+\vspace{\baselineskip}
 \noindent \textbf{Core Findings:} Theoretical validation confirms that the discrete numerical solver aligns with continuous-time analytical limits to within $0.11\%$ discretization error. Furthermore, empirical historical bootstrapping demonstrates that the dynamic MPC model successfully identifies and adapts to non-linear liquidity vacuums, safely reverting to the theoretically optimal variance-minimizing schedule during periods of severe market stress.
 \end{abstract}
 
@@ -34,85 +39,106 @@
 Let $T$ be the total time horizon and $N \in \mathbb{N}$ the number of discrete trading intervals. We define the time step $\tau = \frac{T}{N}$ and the discrete time grid $t_k = k \tau$ for $k \in \{0, 1, \dots, N\}$. 
 
 Let $X$ denote the initial inventory. The inventory at time $t_k$ is denoted $x_k$, subject to the boundary conditions $x_0 = X$ and $x_N = 0$. The number of shares liquidated between $t_{k-1}$ and $t_k$ is given by:
-\[ v_k = x_{k-1} - x_k \quad \text{for} \quad k \in \{1, \dots, N\} \]
+\[ v_k = x_{k-1} - x_k \quad \text{for} \quad k \in \{1, \dots, N\}. \]
 \end{definition}
 
 \begin{definition}[Price Dynamics and Execution Cost]
 The fundamental price process follows an arithmetic random walk with permanent market impact:
-\[ S_k = S_{k-1} + \sigma \sqrt{\tau} \xi_k - \gamma v_k \]
+\[ S_k = S_{k-1} + \sigma \sqrt{\tau} \xi_k - \gamma v_k, \]
 where $\xi_k \overset{iid}{\sim} \mathcal{N}(0, 1)$, $\sigma$ is the arithmetic volatility, and $\gamma \geq 0$ is the permanent impact parameter.
 
 The actual execution price incorporates a temporary market impact penalty $\eta \geq 0$:
-\[ \tilde{S}_k = S_{k-1} - \eta \frac{v_k}{\tau} \]
+\[ \tilde{S}_k = S_{k-1} - \eta \frac{v_k}{\tau}. \]
 The total cost of execution is the sum of cash inflows:
-\[ C(x) = \sum_{k=1}^{N} v_k \tilde{S}_k \]
+\begin{equation}
+C(x) = \sum_{k=1}^{N} v_k \tilde{S}_k.
+\end{equation}
 \end{definition}
 
 \section{Implementation Shortfall and Objective Function}
 
 \begin{definition}[Implementation Shortfall]
 The Implementation Shortfall (IS) measures the execution cost relative to the initial paper value of the portfolio:
-\[ IS = C(x) - X S_0 \]
+\begin{equation}
+IS = C(x) - X S_0.
+\end{equation}
 \end{definition}
 
 \begin{proposition}[Moments of the Implementation Shortfall]
 The expected value and variance of the Implementation Shortfall are given by:
 \begin{align*}
-E[IS] &= - \sum_{k=1}^{N} \left( v_k \gamma (x_0 - x_{k-1}) + \eta \frac{v_k^2}{\tau} \right) \\
-V[IS] &= \sigma^2 \tau \sum_{i=1}^{N-1} x_i^2
+\mathbb{E}[IS] &= - \sum_{k=1}^{N} \left( v_k \gamma (x_0 - x_{k-1}) + \eta \frac{v_k^2}{\tau} \right), \\
+\mathbb{V}[IS] &= \sigma^2 \tau \sum_{i=1}^{N-1} x_i^2.
 \end{align*}
 \end{proposition}
 
 \begin{proof}
 The Implementation Shortfall is given by:
-\[ IS = \sum_{k=1}^{N} \left( v_k S_{k-1} - \eta \frac{v_k^2}{\tau} \right) - X S_0 \]
-Substituting the unrolled fundamental price $S_{k-1} = S_0 + \sigma \sqrt{\tau} \sum_{i=1}^{k-1} \xi_i - \gamma(x_0 - x_{k-1})$, the expected value extracts the deterministic components, yielding $E[IS]$.
+\[ IS = \sum_{k=1}^{N} \left( v_k S_{k-1} - \eta \frac{v_k^2}{\tau} \right) - X S_0. \]
+Substituting the unrolled fundamental price $S_{k-1} = S_0 + \sigma \sqrt{\tau} \sum_{i=1}^{k-1} \xi_i - \gamma(x_0 - x_{k-1})$, the expected value extracts the deterministic components, yielding $\mathbb{E}[IS]$.
 
 For the variance, we isolate the stochastic term of $IS$:
-\[ IS_{\text{stochastic}} = \sigma \sqrt{\tau} \sum_{k=1}^{N} v_k \sum_{i=1}^{k-1} \xi_i \]
+\[ IS_{\text{stochastic}} = \sigma \sqrt{\tau} \sum_{k=1}^{N} v_k \sum_{i=1}^{k-1} \xi_i. \]
 By swapping the order of summation over the discrete indices from $\{(k,i) : 1 \le k \le N, 1 \le i \le k-1\}$ to $\{(i,k) : 1 \le i \le N-1, i+1 \le k \le N\}$, we obtain:
-\[ IS_{\text{stochastic}} = \sigma \sqrt{\tau} \sum_{i=1}^{N-1} \xi_i \sum_{k=i+1}^{N} v_k \]
+\[ IS_{\text{stochastic}} = \sigma \sqrt{\tau} \sum_{i=1}^{N-1} \xi_i \sum_{k=i+1}^{N} v_k. \]
 Since the sum of executed volumes from $i+1$ to $N$ is exactly the remaining inventory $x_i - x_N$, and $x_N = 0$, this simplifies to $\sigma \sqrt{\tau} \sum_{i=1}^{N-1} x_i \xi_i$. Because $\xi_i$ are independent standard normal variables, the variance evaluates to the sum of the squared coefficients:
-\[ V[IS] = \sigma^2 \tau \sum_{i=1}^{N-1} x_i^2 \]
+\[ \mathbb{V}[IS] = \sigma^2 \tau \sum_{i=1}^{N-1} x_i^2. \]
 \end{proof}
 
 \begin{definition}[Mean-Variance Objective Function]
-Because $IS$ represents a negative loss, we aim to minimize the expected execution penalty $E = -E[IS]$ penalized by the strategy's variance. For a risk aversion parameter $\lambda \geq 0$, the objective function is:
-\[ U(x) = E + \lambda V[IS] \]
+Because $IS$ represents a negative loss, we aim to minimize the expected execution penalty $E = -\mathbb{E}[IS]$ penalized by the strategy's variance. For a risk aversion parameter $\lambda \geq 0$, the objective function is:
+\begin{equation}
+U(x) = E + \lambda \mathbb{V}[IS].
+\end{equation}
 \end{definition}
 
 \begin{proposition}[Quadratic Form of the Objective Function]
-The objective function can be isolated with respect to the interior points $x = (x_1, x_2, \dots, x_{N-1})$ as a strict multi-dimensional quadratic form $\tilde{U}(x) = \frac{1}{2} x^T A x - b^T x$, where $\tilde{U}(x)$ is defined as:
-\[ \tilde{U}(x) = \frac{\tilde{\eta}}{\tau} \sum_{k=1}^{N} (x_{k-1} - x_k)^2 + \lambda \sigma^2 \tau \sum_{k=1}^{N-1} x_k^2 \qquad \text{with } \tilde{\eta} = \eta - \frac{1}{2} \gamma \tau \]
+The objective function can be isolated with respect to the interior points $x = (x_1, x_2, \dots, x_{N-1})$ as a strict multi-dimensional quadratic form $\tilde{U}(x) = \frac{1}{2} x^\top A x - b^\top x$, where $\tilde{U}(x)$ is defined as:
+\begin{equation}
+\tilde{U}(x) = \frac{\tilde{\eta}}{\tau} \sum_{k=1}^{N} (x_{k-1} - x_k)^2 + \lambda \sigma^2 \tau \sum_{k=1}^{N-1} x_k^2, \qquad \text{with } \tilde{\eta} = \eta - \frac{1}{2} \gamma \tau.
+\end{equation}
 The elements of the symmetric tridiagonal matrix $A$ and vector $b$ are:
 \begin{align*}
-A_{k,k} &= \frac{4\tilde{\eta}}{\tau} + 2 \lambda \sigma^2 \tau \\
-A_{k, k+1} &= A_{k+1, k} = -\frac{2\tilde{\eta}}{\tau} \\
-b_1 &= \frac{2\tilde{\eta}X}{\tau}, \quad b_k = 0 \quad \text{for } k > 1
+A_{k,k} &= \frac{4\tilde{\eta}}{\tau} + 2 \lambda \sigma^2 \tau, \\
+A_{k, k+1} &= A_{k+1, k} = -\frac{2\tilde{\eta}}{\tau}, \\
+b_1 &= \frac{2\tilde{\eta}X}{\tau}, \quad b_k = 0 \quad \text{for } k > 1.
 \end{align*}
 \end{proposition}
 
 \begin{proof}
 We expand the impact penalty sum $\sum_{k=1}^{N} (x_{k-1} - x_k)^2$:
-\[ \sum_{k=1}^{N} (x_{k-1} - x_k)^2 = x_0^2 - 2x_0 x_1 + 2\sum_{k=1}^{N-1} x_k^2 - 2\sum_{k=1}^{N-2} x_k x_{k+1} + x_N^2 \]
+\[ \sum_{k=1}^{N} (x_{k-1} - x_k)^2 = x_0^2 - 2x_0 x_1 + 2\sum_{k=1}^{N-1} x_k^2 - 2\sum_{k=1}^{N-2} x_k x_{k+1} + x_N^2. \]
 Since $x_0 = X$ and $x_N = 0$, substituting this into $\tilde{U}(x)$ yields:
-\[ \tilde{U}(x) = \frac{\tilde{\eta}}{\tau} X^2 - \frac{2\tilde{\eta}}{\tau} X x_1 - \frac{2\tilde{\eta}}{\tau} \sum_{k=1}^{N-2} x_k x_{k+1} + \sum_{k=1}^{N-1} \left( \frac{2\tilde{\eta}}{\tau} + \lambda \sigma^2 \tau \right) x_k^2 \]
-By mapping this to the standard quadratic form $\frac{1}{2}x^T A x - b^T x$, we multiply the $x_k^2$ coefficients by $2$ to identify the diagonal elements $A_{k,k} = \frac{4\tilde{\eta}}{\tau} + 2\lambda \sigma^2 \tau$, identify the off-diagonal elements $A_{k,k+1} = -\frac{2\tilde{\eta}}{\tau}$, and extract the linear vector component $b_1 = \frac{2\tilde{\eta}X}{\tau}$.
+\[ \tilde{U}(x) = \frac{\tilde{\eta}}{\tau} X^2 - \frac{2\tilde{\eta}}{\tau} X x_1 - \frac{2\tilde{\eta}}{\tau} \sum_{k=1}^{N-2} x_k x_{k+1} + \sum_{k=1}^{N-1} \left( \frac{2\tilde{\eta}}{\tau} + \lambda \sigma^2 \tau \right) x_k^2. \]
+By mapping this to the standard quadratic form $\frac{1}{2}x^\top A x - b^\top x$, we multiply the $x_k^2$ coefficients by $2$ to identify the diagonal elements $A_{k,k} = \frac{4\tilde{\eta}}{\tau} + 2\lambda \sigma^2 \tau$, identify the off-diagonal elements $A_{k,k+1} = -\frac{2\tilde{\eta}}{\tau}$, and extract the linear vector component $b_1 = \frac{2\tilde{\eta}X}{\tau}$.
 \end{proof}
 
 \begin{theorem}[Strict Convexity and Global Minimum]
-The matrix $A = \nabla^2 \tilde{U}(x)$ is positive definite, meaning for all non-zero vectors $x \in \mathbb{R}^{N-1}$, $x^T A x > 0$. Consequently, $\tilde{U}(x)$ is strictly convex and admits a unique global minimum $x^*$.
+The matrix $A = \nabla^2 \tilde{U}(x)$ is positive definite, meaning for all non-zero vectors $x \in \mathbb{R}^{N-1}$, $x^\top A x > 0$. Consequently, $\tilde{U}(x)$ is strictly convex and admits a unique global minimum $x^*$.
 \end{theorem}
 
 \begin{proof}
 For any non-zero vector $x \in \mathbb{R}^{N-1}$, the quadratic form expands as:
-\[ x^T A x = \left(\frac{4\tilde{\eta}}{\tau} + 2\lambda\sigma^2\tau\right)\sum_{k=1}^{N-1} x_k^2 - \frac{4\tilde{\eta}}{\tau} \sum_{k=1}^{N-2} x_k x_{k+1} \]
+\[ x^\top A x = \left(\frac{4\tilde{\eta}}{\tau} + 2\lambda\sigma^2\tau\right)\sum_{k=1}^{N-1} x_k^2 - \frac{4\tilde{\eta}}{\tau} \sum_{k=1}^{N-2} x_k x_{k+1}. \]
 Factoring out $\frac{2\tilde{\eta}}{\tau}$, we rewrite the sum:
-\[ x^T A x = \frac{2\tilde{\eta}}{\tau} \left( 2\sum_{k=1}^{N-1} x_k^2 - 2\sum_{k=1}^{N-2} x_k x_{k+1} \right) + 2\lambda\sigma^2\tau \sum_{k=1}^{N-1} x_k^2 \]
+\[ x^\top A x = \frac{2\tilde{\eta}}{\tau} \left( 2\sum_{k=1}^{N-1} x_k^2 - 2\sum_{k=1}^{N-2} x_k x_{k+1} \right) + 2\lambda\sigma^2\tau \sum_{k=1}^{N-1} x_k^2. \]
 Applying the algebraic identity $(a-b)^2 = a^2 - 2ab + b^2$ allows us to regroup the bracketed terms:
-\[ x^T A x = \frac{2\tilde{\eta}}{\tau} \left[ x_1^2 + x_{N-1}^2 + \sum_{k=1}^{N-2} (x_k - x_{k+1})^2 \right] + 2\lambda\sigma^2\tau \sum_{k=1}^{N-1} x_k^2 \]
-Since $\tilde{\eta}, \tau, \lambda, \sigma^2 > 0$, every term is a non-negative sum of squares. For $x \neq 0$, at least one coordinate is non-zero, ensuring $\sum x_k^2 > 0$. Thus, $x^T A x > 0$.
+\[ x^\top A x = \frac{2\tilde{\eta}}{\tau} \left[ x_1^2 + x_{N-1}^2 + \sum_{k=1}^{N-2} (x_k - x_{k+1})^2 \right] + 2\lambda\sigma^2\tau \sum_{k=1}^{N-1} x_k^2. \]
+Since $\tilde{\eta}, \tau, \lambda, \sigma^2 > 0$, every term is a non-negative sum of squares. For $x \neq 0$, at least one coordinate is non-zero, ensuring $\sum x_k^2 > 0$. Thus, $x^\top A x > 0$.
 \end{proof}
+
+\begin{proposition}[Spectral Properties and Condition Number]
+The symmetric tridiagonal matrix $A \in \mathbb{R}^{(N-1) \times (N-1)}$ has strictly positive eigenvalues given by:
+\[ \Lambda_k = \frac{4\tilde{\eta}}{\tau} + 2\lambda\sigma^2\tau - \frac{4\tilde{\eta}}{\tau} \cos\left(\frac{k\pi}{N}\right) \quad \text{for } k \in \{1, \dots, N-1\}. \]
+\end{proposition}
+
+\begin{proof}
+Matrix $A$ is a Toeplitz tridiagonal matrix with main diagonal $a = \frac{4\tilde{\eta}}{\tau} + 2\lambda\sigma^2\tau$ and off-diagonals $b = -\frac{2\tilde{\eta}}{\tau}$. The eigenvalues of an $n \times n$ tridiagonal Toeplitz matrix are analytically known to be $\Lambda_k = a + 2b \cos\left(\frac{k\pi}{n+1}\right)$. Substituting $a$ and $b$ for our $(N-1) \times (N-1)$ matrix yields the result. Since $\cos(\theta) < 1$ for $\theta \in (0, \pi)$, it follows that $\Lambda_k > 2\lambda\sigma^2\tau > 0$, confirming $A$ is strictly positive-definite.
+\end{proof}
+
+\begin{remark}[Computational Complexity via the Thomas Algorithm]
+Because $A$ is strictly diagonally dominant for $\lambda > 0$, the linear system $Ax = b$ can be solved without full numerical matrix inversion ($O(N^3)$). The underlying algorithm (\texttt{scipy.linalg.solve\_banded}) employs the Thomas algorithm, a specialized LU decomposition for tridiagonal matrices, ensuring the optimal trajectory is solved in strict $O(N)$ time. This guarantees algorithmic stability even as the discretization step $\tau \to 0$.
+\end{remark}
 
 \begin{proposition}[Risk-Neutral Execution Limit (TWAP)]
 As the risk aversion parameter $\lambda \to 0$, the optimal execution strategy converges to the Time-Weighted Average Price (TWAP) schedule, where the executed volume at each step is strictly constant: $v_k = \frac{X}{N}$ for all $k \in \{1, \dots, N\}$.
@@ -124,55 +150,57 @@ For a risk-neutral agent ($\lambda = 0$), the objective function reduces entirel
 subject to the liquidation constraint $\sum_{k=1}^N v_k = X$.
 
 Let $f(v) = v^2$. Since the second derivative $f''(v) = 2 > 0$, the function is strictly convex. Applying Jensen's inequality with uniform weights $w_k = \frac{1}{N}$:
-\[ f\left( \frac{1}{N} \sum_{k=1}^N v_k \right) \le \frac{1}{N} \sum_{k=1}^N f(v_k) \]
+\[ f\left( \frac{1}{N} \sum_{k=1}^N v_k \right) \le \frac{1}{N} \sum_{k=1}^N f(v_k). \]
 Substituting the constraint $\sum_{k=1}^N v_k = X$ into the left side yields:
-\[ \left( \frac{X}{N} \right)^2 \le \frac{1}{N} \sum_{k=1}^N v_k^2 \implies \sum_{k=1}^N v_k^2 \ge \frac{X^2}{N} \]
+\[ \left( \frac{X}{N} \right)^2 \le \frac{1}{N} \sum_{k=1}^N v_k^2 \implies \sum_{k=1}^N v_k^2 \ge \frac{X^2}{N}. \]
 Because $f(v)$ is strictly convex, Jensen's inequality holds as a strict equality if and only if all variables are identical. Therefore, the absolute minimum is uniquely achieved when $v_1 = v_2 = \dots = v_N = \frac{X}{N}$.
 \end{proof}
 
 \begin{remark}[High Risk Aversion Boundary]
-Conversely, as $\lambda$ increases, the variance penalty $\sum_{k=1}^{N-1} x_k^2$ dominates the objective function. To minimize this holding area, the optimization algorithm generates a highly convex, front-loaded schedule, aggressively liquidating inventory in the earliest trading intervals to shed stochastic risk.
+Conversely, as $\lambda$ increases, the variance penalty $\sum_{k=1}^{N-1} x_k^2$ dominates the objective function. As illustrated in Figure \ref{fig:trajectories_risk_aversion}, to minimize this holding area, the optimization algorithm generates a highly convex, front-loaded schedule, aggressively liquidating inventory in the earliest trading intervals to shed stochastic risk.
 \end{remark}
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.7\textwidth]{results/Optimal_Execution_Trajectories_across_Risk_Aversion_Levels.png}
     \caption{We implemented the Almgren-Chriss model for 50 different values of $\lambda$ ranging from $10^{-6}$ to $10$. We can clearly observe how the curvature evolves as $\lambda$ gets bigger and how it tends to become a straight line as $\lambda \to 0$.}
-    \label{fig:mon_image} 
+    \label{fig:trajectories_risk_aversion} 
 \end{figure}
 
 \section{Continuous-Time Limit and ODE Formulation}
 
 \begin{theorem}[Continuous Limit of the Difference Equation]
 The first-order condition $\nabla \tilde{U}(x^*) = 0 \implies A x^* = b$ implies that for the interior points $1 < k < N-1$, the sequence satisfies:
-\[ \frac{x_{k+1} - 2x_k + x_{k-1}}{\tau^2} = \frac{\lambda \sigma^2}{\tilde{\eta}} x_k \]
+\[ \frac{x_{k+1} - 2x_k + x_{k-1}}{\tau^2} = \frac{\lambda \sigma^2}{\tilde{\eta}} x_k. \]
 Taking the limit as $\tau \to 0$, this difference equation converges to the ordinary differential equation:
-\[ x''(t) - \tilde{\kappa}^2 x(t) = 0 \]
+\begin{equation}
+x''(t) - \tilde{\kappa}^2 x(t) = 0,
+\end{equation}
 where $\tilde{\kappa} = \sigma \sqrt{\frac{\lambda}{\tilde{\eta}}}$.
 \end{theorem}
 
 \begin{proof}
 Extracting the $k$-th row from the linear system $Ax = b$ for an interior point gives:
-\[ -\frac{2\tilde{\eta}}{\tau} x_{k-1} + \left(\frac{4\tilde{\eta}}{\tau} + 2\lambda\sigma^2\tau\right) x_k - \frac{2\tilde{\eta}}{\tau} x_{k+1} = 0 \]
+\[ -\frac{2\tilde{\eta}}{\tau} x_{k-1} + \left(\frac{4\tilde{\eta}}{\tau} + 2\lambda\sigma^2\tau\right) x_k - \frac{2\tilde{\eta}}{\tau} x_{k+1} = 0. \]
 Dividing by $-\frac{2\tilde{\eta}}{\tau}$ and rearranging the terms yields:
-\[ x_{k+1} - 2x_k + x_{k-1} = \frac{\lambda \sigma^2 \tau^2}{\tilde{\eta}} x_k \]
+\[ x_{k+1} - 2x_k + x_{k-1} = \frac{\lambda \sigma^2 \tau^2}{\tilde{\eta}} x_k. \]
 Dividing both sides by $\tau^2$ produces the discrete second derivative operator on the left side. As $\tau \to 0$, the left side formally converges to $x''(t)$, yielding $x''(t) - \tilde{\kappa}^2 x(t) = 0$.
 \end{proof}
 
 \begin{proposition}[Exact Analytical Solution]
 The continuous-time ODE subject to the boundary conditions $x(0) = X$ and $x(T) = 0$ admits the closed-form analytical solution:
-\[ x(t) = X \frac{\sinh(\tilde{\kappa}(T-t))}{\sinh(\tilde{\kappa} T)} \]
+\[ x(t) = X \frac{\sinh(\tilde{\kappa}(T-t))}{\sinh(\tilde{\kappa} T)}. \]
 \end{proposition}
 
 \begin{proof}
 The characteristic equation for the ODE is $r^2 - \tilde{\kappa}^2 = 0$, yielding roots $r = \pm \tilde{\kappa}$. The general solution in exponential basis is:
-\[ x(t) = A e^{\tilde{\kappa}t} + B e^{-\tilde{\kappa}t} \]
+\[ x(t) = A e^{\tilde{\kappa}t} + B e^{-\tilde{\kappa}t}. \]
 Applying the boundary conditions $x(0) = X$ and $x(T) = 0$ yields a system of equations for the constants, resolving to:
-\[ A = \frac{-e^{-\tilde{\kappa}T}}{2\sinh(\tilde{\kappa}T)}X, \quad B = \frac{e^{\tilde{\kappa}T}}{2\sinh(\tilde{\kappa}T)}X \]
+\[ A = \frac{-e^{-\tilde{\kappa}T}}{2\sinh(\tilde{\kappa}T)}X, \quad B = \frac{e^{\tilde{\kappa}T}}{2\sinh(\tilde{\kappa}T)}X. \]
 Substituting these constants back into the general solution:
-\[ x(t) = \frac{X}{2\sinh(\tilde{\kappa}T)} \left( e^{\tilde{\kappa}(T-t)} - e^{-\tilde{\kappa}(T-t)} \right) \]
+\[ x(t) = \frac{X}{2\sinh(\tilde{\kappa}T)} \left( e^{\tilde{\kappa}(T-t)} - e^{-\tilde{\kappa}(T-t)} \right). \]
 By the definition of the hyperbolic sine, $\sinh(z) = \frac{e^z - e^{-z}}{2}$, this simplifies strictly to:
-\[ x(t) = X \frac{\sinh(\tilde{\kappa}(T-t))}{\sinh(\tilde{\kappa}T)} \]
+\[ x(t) = X \frac{\sinh(\tilde{\kappa}(T-t))}{\sinh(\tilde{\kappa}T)}. \]
 \end{proof}
 
 \begin{remark}
@@ -190,13 +218,13 @@ Setting the temporary impact $\eta = 2 \times 10^{-5}$ and permanent impact $\ga
 
 \begin{proposition}[Maximum Variance Limit]
 The physical boundary of the Efficient Frontier is strictly bounded on the right by the risk-neutral TWAP strategy ($\lambda \to 0$). The absolute maximum variance exposure is given by:
-\[ V_{max} = \sigma^2 \tau \sum_{j=1}^{N-1} \left( X \frac{j}{N} \right)^2 \]
+\[ \mathbb{V}_{max} = \sigma^2 \tau \sum_{j=1}^{N-1} \left( X \frac{j}{N} \right)^2. \]
 \end{proposition}
 
 \begin{proof}
-By substituting the deterministic TWAP inventory schedule $x_k = X \frac{N-k}{N}$ into the variance equation $V[IS] = \sigma^2 \tau \sum_{k=1}^{N-1} x_k^2$, we obtain:
-\[ V_{max} = \sigma^2 \tau \sum_{k=1}^{N-1} \left( X \frac{N-k}{N} \right)^2 \]
-Changing the summation index to $j = N-k$ reverses the sum but preserves the terms precisely, yielding the result. The variance cannot physically exceed this value, as TWAP represents the maximum possible time-exposure of the inventory to stochastic price shocks. With our calibrated parameters, $V_{max} \approx 2.91 \times 10^6$, corresponding to an execution standard deviation of $\$1,706$ ($17$ bps).
+By substituting the deterministic TWAP inventory schedule $x_k = X \frac{N-k}{N}$ into the variance equation $\mathbb{V}[IS] = \sigma^2 \tau \sum_{k=1}^{N-1} x_k^2$, we obtain:
+\[ \mathbb{V}_{max} = \sigma^2 \tau \sum_{k=1}^{N-1} \left( X \frac{N-k}{N} \right)^2. \]
+Changing the summation index to $j = N-k$ reverses the sum but preserves the terms precisely, yielding the result. The variance cannot physically exceed this value, as TWAP represents the maximum possible time-exposure of the inventory to stochastic price shocks. With our calibrated parameters, $\mathbb{V}_{max} \approx 2.91 \times 10^6$, corresponding to an execution standard deviation of $\$1,706$ ($17$ bps).
 \end{proof}
 
 \paragraph{Structural Bounds vs. The Institutional Operating Window}
@@ -204,7 +232,7 @@ To understand the global properties of the continuous ODE versus the local const
 
 Figure \ref{fig:theoretical_bounds} displays the macro-mathematical view ($\lambda \in [10^{-6}, 10^1]$). As $\lambda \to \infty$, the variance penalty forces a corner solution: an instantaneous block liquidation ($v_1 \to X$). Under the infinite liquidity assumption of the linear framework, this yields a theoretical shortfall of approximately $-\$560,000$. In practice, this 56\% slippage represents a physical liquidity wall---a mathematically valid limit that no rational portfolio manager would ever execute.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
     \includegraphics[width=0.8\textwidth]{results/Efficient_Frontier_high_range.png}
     \caption{Theoretical Bounds ($\lambda \in [10^{-6}, 10^1]$). The left boundary represents the prohibitive market impact of an instantaneous block liquidation.}
@@ -213,7 +241,7 @@ Figure \ref{fig:theoretical_bounds} displays the macro-mathematical view ($\lamb
 
 Figure \ref{fig:practical_bounds} restricts the domain to the viable operational window ($\lambda \in [10^{-6}, 10^{-1}]$). Here, execution costs range from the 24.9 bps TWAP baseline up to approximately 200 bps. Quantitative funds restrict their optimization entirely to this flatter sub-domain. The exact chosen coordinate balances minor temporary impact penalties against strategy-specific constraints, such as alpha decay (directional drift), preserving tight Sharpe ratios in statistical arbitrage, or preempting volatility shocks.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
     \includegraphics[width=0.8\textwidth]{results/Efficient_Frontier_low_range.png}
     \caption{The Rational Execution Window ($\lambda \in [10^{-6}, 10^{-1}]$). The strict operational domain where execution algorithms balance impact costs against standard intraday variance.}
@@ -225,17 +253,106 @@ While the permanent impact parameter $\gamma$ explicitly penalizes the total exp
 
 \section{Machine Learning Engine and Predictive Microstructure}
 
-To extend the static model into a dynamic Model Predictive Control (MPC) framework, we integrate localized order book features (Garman-Klass volatility, Order Flow Imbalance, Market Depth) to predict short-term regime shifts in volatility ($\sigma$) and liquidity ($\eta$).
+To extend the static model into a dynamic Model Predictive Control (MPC) framework, we integrate localized order book features to predict short-term regime shifts in volatility ($\sigma$) and liquidity ($\eta$).
+
+\paragraph{Feature Engineering and Predictive Signals}
+Standard close-to-close estimators fail to capture the high-frequency dynamics of the order book. To feed the predictive engine, we engineered four specific microstructural features evaluated over a rolling window $w$:
+
+\begin{definition}[Garman-Klass Volatility]
+To capture intra-period price variance more efficiently than standard estimators, we compute a rolling window mean of the instantaneous Garman-Klass estimator. For a given trading interval $i$ with Open ($O_i$), High ($H_i$), Low ($L_i$), and Close ($C_i$) prices:
+\[ \hat{\sigma}_{GK, t}^2 = \frac{1}{w} \sum_{i=t-w+1}^{t} \left[ \frac{1}{2} \ln\left(\frac{H_i}{L_i}\right)^2 - (2\ln 2 - 1) \ln\left(\frac{C_i}{O_i}\right)^2 \right]. \]
+\end{definition}
+
+\begin{definition}[Order Flow Imbalance (OFI)]
+OFI quantifies the net buying or selling pressure. Using price-volume dynamics as a proxy, we define a shape parameter $\alpha_i$ and aggregate the Net Buying Imbalance over window $w$:
+\begin{align*}
+\alpha_i &= \frac{(C_i - O_i) + (C_i - L_i) - (H_i - C_i)}{2(H_i - L_i)}, \\
+OFI_t &= \sum_{i=t-w+1}^{t} \alpha_i V_i.
+\end{align*}
+\end{definition}
+
+\begin{definition}[Market Depth]
+Market depth aggregates the capacity to absorb immediate execution. We utilize a range-based illiquidity measure averaged over the window $w$:
+\[ Depth_t = \frac{1}{w} \sum_{i=t-w+1}^{t} \frac{\ln(H_i / L_i)}{V_i}. \]
+\end{definition}
+
+\begin{definition}[Momentum]
+Momentum captures the short-term directional trend of the asset. We compute a rolling Z-score over window $w$:
+\[ M_t = \frac{C_t - \mu_w}{\sigma_w}, \]
+where $\mu_w$ and $\sigma_w$ represent the rolling mean and standard deviation of the close price, respectively. Note that while momentum is evaluated as a microstructural feature to forecast variance and illiquidity regimes, the core optimization engine deliberately retains a zero-drift Martingale assumption ($\mu=0$). We strictly isolate the algorithm's response to second-order risk and liquidity constraints without introducing a directional drift penalty into the objective function.
+\end{definition}
+
+\paragraph{Target Variables}
+The dynamic MPC framework maps the aforementioned features at time $t$ to predict two localized target variables over the forward horizon $m$:
+
+\begin{definition}[Target: Localized Volatility ($\sigma_{t, t+m}$)]
+The forward-looking realized volatility over the subsequent $m$ periods, scaled by the current price to serve as the absolute stochastic risk parameter:
+\[ \sigma_{t, t+m} = C_t \sqrt{ \sum_{i=t+1}^{t+m} \ln\left(\frac{C_i}{C_{i-1}}\right)^2 }. \]
+\end{definition}
+
+\begin{definition}[Target: Amihud Illiquidity ($\eta_{t, t+m}$)]
+To proxy the temporary market impact, we evaluate a multi-period Amihud illiquidity ratio quantifying the absolute log-return response relative to the accumulated forward volume:
+\[ \tilde{\eta}_{Amihud} = \frac{\left| \ln\left(\frac{C_{t+m}}{C_t}\right) \right|}{\sum_{i=t+1}^{t+m} V_i}. \]
+Because the Almgren-Chriss objective function requires $\eta$ to be expressed in specific dollar-variance units $\left[ \frac{\$ \cdot \text{Time}}{\text{Shares}^2} \right]$, the dimensionless Amihud proxy is mapped to the strict solver space via a static calibration scalar $\kappa_\eta$ and the current spot price:
+\[ \eta_{t, t+m} = \kappa_\eta \cdot C_t \cdot \tilde{\eta}_{Amihud}. \]
+\end{definition}
+
+\paragraph{Multicollinearity and Regularization Mechanics}
+Order book features exhibit severe multicollinearity. Under Ordinary Least Squares (OLS) regression, the feature covariance matrix $X^\top X$ becomes ill-conditioned, leading to highly unstable and overfitted coefficient estimates. To stabilize the matrix inversion and formally manage the bias-variance tradeoff, we employ Ridge ($L_2$) regularization.
+
+The Ridge estimator minimizes the penalized residual sum of squares:
+\[ \hat{\beta}_{ridge} = \argmin_{\beta} \left\{ (Y - X\beta)^\top(Y - X\beta) + \lambda_{ridge} \beta^\top \beta \right\}. \]
+Taking the gradient with respect to $\beta$ and setting it to zero yields the closed-form estimator:
+\begin{equation}
+\hat{\beta}_{ridge} = (X^\top X + \lambda_{ridge} I)^{-1} X^\top Y.
+\end{equation}
+
+\begin{proposition}[Moments of the Ridge Estimator]
+Assuming the true data generating process is $Y = X\beta + \epsilon$ with $\mathbb{E}[\epsilon]=0$ and $\mathbb{V}[\epsilon]=\sigma_\epsilon^2 I$, the expectation and variance of the Ridge estimator are given by:
+\begin{align*}
+\mathbb{E}[\hat{\beta}_{ridge}] &= (X^\top X + \lambda_{ridge} I)^{-1} X^\top X \beta, \\
+\mathbb{V}[\hat{\beta}_{ridge}] &= \sigma_\epsilon^2 (X^\top X + \lambda_{ridge} I)^{-1} X^\top X (X^\top X + \lambda_{ridge} I)^{-1}.
+\end{align*}
+\end{proposition}
+
+\begin{proof}
+For the expectation, applying the linear operator yields:
+\[ \mathbb{E}[\hat{\beta}_{ridge}] = (X^\top X + \lambda_{ridge} I)^{-1} X^\top \mathbb{E}[Y] = (X^\top X + \lambda_{ridge} I)^{-1} X^\top X \beta. \]
+This explicitly proves that $\hat{\beta}_{ridge}$ is a biased estimator, utilizing the $\lambda_{ridge} I$ term to mathematically shrink the coefficients toward zero in order to reduce overall variance.
+
+For the variance, utilizing the property $\mathbb{V}[CY] = C \mathbb{V}[Y] C^\top$, we have:
+\[ \mathbb{V}[\hat{\beta}_{ridge}] = (X^\top X + \lambda_{ridge} I)^{-1} X^\top (\sigma_\epsilon^2 I) X \left((X^\top X + \lambda_{ridge} I)^{-1}\right)^\top. \]
+Because both $X^\top X$ and $I$ are symmetric, the inverse matrix is also symmetric, yielding the final result:
+\[ \mathbb{V}[\hat{\beta}_{ridge}] = \sigma_\epsilon^2 (X^\top X + \lambda_{ridge} I)^{-1} X^\top X (X^\top X + \lambda_{ridge} I)^{-1}. \]
+\end{proof}
+
+\begin{remark}[Theoretical Optimal Penalty and Dynamic Alpha Tuning]
+The Mean Squared Error of the estimator is defined as $MSE(\lambda_{ridge}) = \text{Bias}^2(\lambda_{ridge}) + \operatorname{Tr}(\mathbb{V}[\hat{\beta}_{ridge}])$. The existence of a theoretical $\lambda_{ridge} > 0$ that strictly minimizes this MSE mathematically justifies our architectural decision to use dynamic cross-validation (\texttt{alphas = np.logspace(-4, 2, 20)}) to empirically locate the global minimum without incurring data leakage.
+\end{remark}
 
 \paragraph{The Positive-Definite Matrix Constraint}
 The discrete Almgren-Chriss solver requires the symmetric tridiagonal matrix $A$ to be strictly positive-definite to guarantee a unique global minimum. This requires the condition:
-\[ \tilde{\eta} = \eta - \frac{1}{2}\gamma\tau > 0 \]
+\[ \tilde{\eta} = \eta - \frac{1}{2}\gamma\tau > 0. \]
 Standard linear regressors can output negative predictions, which mathematically breaks the solver. To enforce this strict physical boundary, the target variables are transformed into log-space ($\ln(\sigma)$, $\ln(\eta)$) prior to model training. The resulting predictions are exponentiated ($e^{\text{pred}}$) back to real-space before being passed to the dynamic execution engine, guaranteeing strictly positive parameters.
 
 \paragraph{Linear Limitations and the Non-Linear Pivot}
-Initial out-of-sample testing utilized a Ridge regressor with dynamic $\alpha$ tuning. When benchmarked against a naive 10-period Simple Moving Average (SMA), the Ridge model outperformed on liquidity prediction (MSE improvement of $+4.90\%$) but suffered a massive degradation in volatility prediction ($-31.04\%$ against the SMA). 
+Initial out-of-sample testing utilized the regularized Ridge pipeline. When benchmarked against a naive 10-period Simple Moving Average (SMA), the Ridge model outperformed on liquidity prediction (MSE improvement of $+4.90\%$) but suffered a massive degradation in volatility prediction ($-31.04\%$ against the SMA). 
 
-This empirical failure reveals a core microstructural reality: order book dynamics are highly non-linear. Market phenomena such as sudden liquidity vacuums or volatility spikes are threshold events. Continuous linear weights fail to capture these regime shifts, capturing noise instead of signal. 
+This empirical failure reveals a core microstructural reality: order book dynamics are highly non-linear. Market phenomena such as sudden liquidity vacuums or volatility spikes are threshold events. Continuous linear weights fail to capture these regime shifts, capturing noise instead of signal.
+
+\paragraph{The MPC Feedback Loop and Rolling Optimization}
+To transition from a static optimal schedule to a Model Predictive Control (MPC) execution, the framework must iteratively re-solve the quadratic objective function using the localized predictions.
+
+At any discrete time step $t_k$, the engine holds a remaining inventory $x_k$ and faces a shrinking execution horizon of $N_k = N - k$ intervals. The Machine Learning pipeline ingests the order book state at $t_k$ to output the dynamically scaled predictions $\hat{\sigma}_k$ and $\hat{\eta}_k$.
+
+The rolling objective function isolates the remaining trajectory $x^{(k)} = (x_{k+1}, \dots, x_{N-1})$:
+\[ \min_{x^{(k)}} \left\{ \frac{\tilde{\eta}_k}{\tau} \sum_{j=k+1}^{N} (x_{j-1} - x_j)^2 + \lambda \hat{\sigma}_k^2 \tau \sum_{j=k+1}^{N-1} x_j^2 \right\}. \]
+
+This reduces to iteratively solving the dynamically updated linear system $A^{(k)} x^{(k)} = b^{(k)}$, where the tridiagonal matrix $A^{(k)} \in \mathbb{R}^{(N_k-1) \times (N_k-1)}$ uses the localized parameters. The linear vector $b^{(k)}$ is updated with the new boundary condition $b^{(k)}_1 = \frac{2\tilde{\eta}_k}{\tau} x_k$. 
+
+The solver evaluates the optimal forward trajectory, but under strict MPC logic, only the immediate control action is executed:
+\[ v_{k+1} = x_k - x^*_{k+1}. \]
+The system then advances to $t_{k+1}$, logs the new market state, recalculates the impact matrices, and repeats the cycle until the inventory is cleared at $x_N = 0$.
 
 \section{Empirical Bootstrapping and Dynamic MPC Validation}
 
@@ -257,9 +374,9 @@ When executing a highly liquid mega-cap equity, the theoretical execution penalt
     \item \textbf{Execution Cost ($\eta, \gamma$):} For a risk-neutral TWAP schedule, the volume per step is $v_k = 1,000$ shares with a time step of $\tau = 0.02$. Using the historically realized temporary impact of $\eta \approx 1.7 \times 10^{-9}$, the total temporary impact cost evaluates to strictly pennies: $\frac{\eta}{\tau} \sum v_k^2 \approx \$4.25$.
 \end{itemize}
 
-Because the fundamental market impact ($\$4.25$) is microscopically small compared to the intraday market noise ($\pm \$35,000$), the final IS is entirely dictated by directional drift. During the sampled historical period, AAPL exhibited a positive trend. This natural market drift generated more cash than the arrival price benchmark, shifting the expected IS mathematically into the positive domain ($E[IS] \approx +\$2,445$).
+As shown in Figure \ref{fig:empirical_is_base}, because the fundamental market impact ($\$4.25$) is microscopically small compared to the intraday market noise ($\pm \$35,000$), the final IS is entirely dictated by directional drift. During the sampled historical period, AAPL exhibited a positive trend. This natural market drift generated more cash than the arrival price benchmark, shifting the expected IS mathematically into the positive domain ($\mathbb{E}[IS] \approx +\$2,445$).
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
     \includegraphics[width=0.8\textwidth]{results/Empirical_IS_Distribution_AAPL_Base.png}
     \caption{Empirical IS Distribution ($M=1,500$). The expected shortfall rests in the positive domain ($+\$2,445$) because the natural historical market drift outpaced the negligible $\$4.25$ market impact of a highly liquid asset.}
@@ -271,7 +388,7 @@ To prove that the MPC grading engine and the discrete tridiagonal matrix solver 
 
 We conducted a stress test by artificially scaling the impact parameters ($\eta$ and $\gamma$) by a factor of $10^4$. This simulation transforms the highly liquid AAPL data into a severely illiquid micro-cap environment, inflating the baseline execution costs to approximately $\$400,000$, thereby aggressively overpowering the $\$35,000$ intraday variance. 
 
-\begin{figure}[H]
+\begin{figure}[htbp]
     \centering
     \includegraphics[width=0.8\textwidth]{results/Empirical_IS_Distribution_Scaled_1e4.png}
     \caption{Stress-Tested IS Distribution with impact parameters scaled by $10^4$. Stripping away the Brownian noise forces the empirical distribution strictly below zero, mathematically validating the discrete execution penalty.}

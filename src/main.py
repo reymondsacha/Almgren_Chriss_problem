@@ -165,9 +165,9 @@ def numerical_verification():
     return L_inf, ratio
 
 L_inf, ratio = numerical_verification()
-#print(f"L_inf the infinite distance between the Almgren-Chriss trajectory for λ = 10e-6 and the TWAP model is {L_inf: .4f}")
+print(f"L_inf the infinite distance between the Almgren-Chriss trajectory for λ = 10e-6 and the TWAP model is {L_inf: .4f}")
 
-#print(f"The fraction of stocks liquidated in the first step for λ = 10 is {ratio: .4f}")
+print(f"The fraction of stocks liquidated in the first step for λ = 10 is {ratio: .4f}")
 
 
 

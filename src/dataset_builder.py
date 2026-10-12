@@ -2,11 +2,11 @@ import numpy as np
 import pandas as pd
 from typing import Tuple
 
-
 def build_ml_dataset(
     df: pd.DataFrame, 
     engineer, 
-    m_forward_periods: int
+    m_forward_periods: int,
+    eta_baseline: float = 1.7e-9
 ) -> Tuple[pd.DataFrame, pd.Series, pd.Series]:
     """
     Constructs the strictly aligned X and y datasets for model training.
@@ -15,6 +15,7 @@ def build_ml_dataset(
         df: The raw OHLCV DataFrame from MicrostructureDownloader.
         engineer: An instantiated Market_State_Engineer object.
         m_forward_periods: The number of bars representing the forward execution interval tau.
+        eta_baseline: L'impact temporaire historique moyen de base pour la calibration d'Amihud.
         
     Returns:
         X (pd.DataFrame): The feature matrix (w-period lookback).
@@ -35,32 +36,36 @@ def build_ml_dataset(
         'depth': depth
     }, index=df.index)
     
-    # 2. Target Engineering (Forward y)
-    
-    # Target 1: Realized Volatility over the next m periods
-    # We use the square root of the sum of squared log returns
+    # 2. Target Engineering (Forward y bruts)
     log_returns = np.log(df['Close'] / df['Close'].shift(1))
     rolling_variance = (log_returns ** 2).rolling(window=m_forward_periods).sum()
     
-    # Target 2: Realized Illiquidity (Amihud proxy) over the next m periods
-    # Absolute log return over the interval divided by total volume in the interval
     forward_abs_return = np.abs(np.log(df['Close'].shift(-m_forward_periods) / df['Close']))
     rolling_volume = df['Volume'].rolling(window=m_forward_periods).sum()
     
-    # 3. Time Alignment
-    # We shift the rolling targets backward by m periods so they align with the current state X_t
-    y_sigma = (np.sqrt(rolling_variance)*df['Close']).shift(-m_forward_periods)
-    y_eta = forward_abs_return / rolling_volume.shift(-m_forward_periods)
+    # 3. Calibration de kappa_eta
+    # On calcule le ratio d'Amihud brut ramené à l'instant t
+    raw_amihud = forward_abs_return / rolling_volume.shift(-m_forward_periods)
+    raw_amihud_scaled = raw_amihud * df['Close']
     
-    # Replace any infinite values with NaN before dropping
+    # Exclusion temporaire des zéros/infinis pour ne pas corrompre la moyenne de calibration
+    amihud_for_mean = raw_amihud_scaled.replace([np.inf, 0, -np.inf], np.nan)
+    kappa_eta = eta_baseline / amihud_for_mean.mean(skipna=True)
+    
+    # 4. Time Alignment & Scaling final
+    y_sigma = np.sqrt(rolling_variance.shift(-m_forward_periods)) * df['Close']
+    y_eta = raw_amihud_scaled * kappa_eta
+    
+    # 5. Nettoyage des asymptotes avant passage au log
     y_eta.replace([np.inf, 0, -np.inf], np.nan, inplace=True)
+    y_sigma.replace([np.inf, 0, -np.inf], np.nan, inplace=True)
     
-    # 4. Cleanup
+    # 6. Cleanup et transformation logarithmique
     dataset = X.copy()
     dataset['target_sigma'] = np.log(y_sigma)
     dataset['target_eta'] = np.log(y_eta)
     
-    # Drop rows with NaN (burn-in period at the start, unfulfilled forward windows at the end)
+    # Suppression des lignes avec NaN (période de chauffe initiale w, et fenêtres m incomplètes à la fin)
     dataset = dataset.dropna()
     
     X_clean = dataset[['garman_klass', 'ofi', 'momentum', 'depth']]
